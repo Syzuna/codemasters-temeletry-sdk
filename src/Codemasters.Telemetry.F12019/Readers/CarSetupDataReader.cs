@@ -1,5 +1,4 @@
-﻿using Codemasters.Telemetry.F12019.Helpers;
-using Codemasters.Telemetry.F12019.Packets;
+﻿using Codemasters.Telemetry.F12019.Packets;
 using Codemasters.Telemetry.F12019.Structures;
 using System.IO;
 
@@ -7,36 +6,20 @@ namespace Codemasters.Telemetry.F12019.Readers
 {
     public class CarSetupDataReader
     {
-		public bool TryRead(byte[] input, out CarSetupData? output)
+
+		public CarSetupData Read(BinaryReader input, PacketHeader packetHeader)
 		{
-			try
+			var output = new CarSetupData
 			{
-				output = Read(input);
-				return output != null;
-			}
-			catch
+				Header = packetHeader,
+
+			};
+
+			for (var i = 0; i < 20; i++)
 			{
-				output = null;
-				return false;
+				output.CarSetups[i] = ReadCarSetup(input);
 			}
-		}
 
-		public CarSetupData? Read(byte[] input)
-		{
-			var output = new CarSetupData();
-			using (MemoryStream stream = new MemoryStream(input))
-			using (BinaryReader reader = new BinaryReader(stream))
-			{
-				output.Header = PacketHeaderHelper.ReadHeader(reader);
-
-				if (output.Header.PacketId != Core.F1PacketType.CarSetups)
-					return null;
-
-				for (var i = 0; i< 20; i++)
-                {
-					output.CarSetups[i] = ReadCarSetup(reader);
-                }
-			}
 			return output;
 		}
 
