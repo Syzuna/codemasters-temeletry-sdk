@@ -1,23 +1,25 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace Codemasters.Telemetry.Udp
 {
-	public class UdpStreamListener : IDisposable, IObservable<byte[]>
+    public class UdpStreamListener : IDisposable, IObservable<Memory<byte>>
 	{
 		private readonly UdpClient _udpClient;
-		private readonly ICollection<IObserver<byte[]>> _observers;
+		private readonly ICollection<IObserver<Memory<byte>>> _observers;
 
 		private IPEndPoint _serverEndPoint;
-		private byte[]? _lastData;
+		private Memory<byte>? _lastData;
 
 		public UdpStreamListener(int port, IPAddress serverIpAddress)
 		{
 			_udpClient = new UdpClient(port);
-			_observers = new List<IObserver<byte[]>>();
+			_observers = new List<IObserver<Memory<byte>>>();
 			_serverEndPoint = new IPEndPoint(serverIpAddress, 0);
 			_lastData = null;
 		}
@@ -32,21 +34,21 @@ namespace Codemasters.Telemetry.Udp
 			_udpClient.Dispose();
 		}
 
-		public IDisposable Subscribe(IObserver<byte[]> observer)
+		public IDisposable Subscribe(IObserver<Memory<byte>> observer)
 		{
-			if (!_observers.Contains(observer))
-			{
-				_observers.Add(observer);
+            if (_observers.Contains(observer)) 
+                return new UdpStreamUnsubscriber(_observers, observer);
 
-				if (_lastData != null)
-				{
-					observer.OnNext(_lastData);
-				}
-			}
-			return new UdpStreamUnsubscriber(_observers, observer);
+            _observers.Add(observer);
+
+            if (_lastData.HasValue)
+            {
+                observer.OnNext(_lastData.Value);
+            }
+            return new UdpStreamUnsubscriber(_observers, observer);
 		}
 
-		protected virtual void NotifyData(byte[] data)
+		protected virtual void NotifyData(Memory<byte> data)
 		{
 			foreach (var observer in _observers)
 			{
@@ -71,28 +73,48 @@ namespace Codemasters.Telemetry.Udp
 		}
 
 		public void Listen(CancellationToken cancellation)
-		{
-			while (true)
-			{
-				IAsyncResult receiveResult = _udpClient.BeginReceive(ReceiveCallback, null);
+        {
+            Task.Factory.StartNew(async () =>
+            {
+                var memoryPool = MemoryPool<byte>.Shared;
 
-				// wait for async receive or cancel requested
-				WaitHandle.WaitAny(new WaitHandle[] { receiveResult.AsyncWaitHandle, cancellation.WaitHandle });
+                while (true)
+                {
+                    try
+                    {
+                        var buffer = memoryPool.Rent(512).Memory;
 
-				if (cancellation.IsCancellationRequested)
-				{
-					// don't have choice, UdpClient will trigger receiveCallback on UDP socket closing
-					_udpClient.Close();
-					break;
-				}
-			}
+                        await _udpClient.Client.ReceiveAsync(buffer, SocketFlags.None, cancellation);
 
-			// end of notifications
-			NotifyCompletion();
+                        _lastData = buffer;
+                        NotifyData(buffer);
 
-			// notify end of operations if requested
-			cancellation.ThrowIfCancellationRequested();
-		}
+                        if (!cancellation.IsCancellationRequested)
+                            continue;
+
+                        _udpClient.Close();
+                        break;
+					}
+                    catch (ObjectDisposedException)
+                    {
+                        // UDP client has been closed previously to abort connect/receive
+                        // no need to notify observers or throw exception
+                        return;
+                    }
+					catch (Exception ex)
+                    {
+                        NotifyError(ex);
+                        throw;
+					}
+                }
+
+                // end of notifications
+                NotifyCompletion();
+
+                // notify end of operations if requested
+                cancellation.ThrowIfCancellationRequested();
+            }, TaskCreationOptions.LongRunning);
+        }
 
 		private void ReceiveCallback(IAsyncResult asyncResult)
 		{

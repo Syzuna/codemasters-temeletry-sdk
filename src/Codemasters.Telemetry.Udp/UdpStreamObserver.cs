@@ -1,11 +1,9 @@
 ﻿
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Codemasters.Telemetry.Udp
 {
-	public abstract class UdpStreamObserver : IObserver<byte[]>
+    public abstract class UdpStreamObserver : IObserver<Memory<byte>>
 	{
 		private IDisposable? _unsubscriber;
 
@@ -14,24 +12,24 @@ namespace Codemasters.Telemetry.Udp
 			
 		}
 
-		public void Subscribe(IObservable<byte[]> listener)
+		public void Subscribe(IObservable<Memory<byte>> listener)
 		{
 			_unsubscriber = listener.Subscribe(this);
 		}
 
 		public void Unsubscribe()
-		{
-			if (_unsubscriber != null)
-			{
-				_unsubscriber.Dispose();
-				_unsubscriber = null;
-			}
-		}
+        {
+            if (_unsubscriber == null) 
+                return;
+
+            _unsubscriber.Dispose();
+            _unsubscriber = null;
+        }
 
 		public abstract void OnCompleted();
 
 		public abstract void OnError(Exception error);
 
-		public abstract void OnNext(byte[] value);
+		public abstract void OnNext(Memory<byte> value);
 	}
 }

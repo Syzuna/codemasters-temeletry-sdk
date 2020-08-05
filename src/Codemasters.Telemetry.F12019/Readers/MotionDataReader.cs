@@ -1,12 +1,12 @@
-﻿using System.IO;
-using Codemasters.Telemetry.F12019.Packets;
+﻿using Codemasters.Telemetry.F12019.Packets;
 using Codemasters.Telemetry.F12019.Structures;
+using System;
 
 namespace Codemasters.Telemetry.F12019.Readers
 {
     public class MotionDataReader
 	{
-		public MotionData Read(BinaryReader input, PacketHeader packetHeader)
+		public MotionData Read(Span<byte> input, PacketHeader packetHeader)
 		{
 			var output = new MotionData
 			{
@@ -21,7 +21,7 @@ namespace Codemasters.Telemetry.F12019.Readers
 			return output;
 		}
 
-		private CarMotion ReadCarMotion(BinaryReader reader)
+		private CarMotion ReadCarMotion(Span<byte> input)
 		{
 			return new CarMotion
 			{

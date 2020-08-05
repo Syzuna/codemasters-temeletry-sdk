@@ -1,18 +1,17 @@
-﻿using System.IO;
-using Codemasters.Telemetry.F12019.Packets;
+﻿using Codemasters.Telemetry.F12019.Packets;
 using Codemasters.Telemetry.F12019.Structures;
+using System;
 
 namespace Codemasters.Telemetry.F12019.Readers
 {
-	public class CarStatusDataReader
+    public class CarStatusDataReader
 	{
-		public CarStatusData Read(BinaryReader input, PacketHeader packetHeader)
+		public CarStatusData Read(Span<byte> input, PacketHeader packetHeader)
 		{
 			var output = new CarStatusData
 			{
-				Header = packetHeader,
-
-			};
+				Header = packetHeader
+            };
 
 			for (var i = 0; i < 20; i++)
 			{
@@ -22,7 +21,7 @@ namespace Codemasters.Telemetry.F12019.Readers
 			return output;
 		}
 
-		private CarStatus ReadCarStatus(BinaryReader reader)
+		private CarStatus ReadCarStatus(Span<byte> input)
 		{
 			return new CarStatus
 			{

@@ -3,12 +3,12 @@ using System.Collections.Generic;
 
 namespace Codemasters.Telemetry.Udp
 {
-	internal class UdpStreamUnsubscriber : IDisposable
+    internal class UdpStreamUnsubscriber : IDisposable
 	{
-		private readonly ICollection<IObserver<byte[]>> _observers;
-		private readonly IObserver<byte[]> _observer;
+		private readonly ICollection<IObserver<Memory<byte>>> _observers;
+		private readonly IObserver<Memory<byte>> _observer;
 
-		internal UdpStreamUnsubscriber(ICollection<IObserver<byte[]>> observers, IObserver<byte[]> observer)
+		internal UdpStreamUnsubscriber(ICollection<IObserver<Memory<byte>>> observers, IObserver<Memory<byte>> observer)
 		{
 			_observers = observers;
 			_observer = observer;
